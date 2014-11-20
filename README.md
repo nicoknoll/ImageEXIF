@@ -3,7 +3,9 @@ ImageEXIF
 
 Adds the EXIF data of an image to it's object.
 
-Example for which EXIF data get's added:
+There are some aliases (e.g. "exposureTime" and "tv") and unformatted values (e.g. "focalLengthUnformatted") included.
+
+_Example for which EXIF data get's added:_
 ```json
 {
 "aperture":5.6,
