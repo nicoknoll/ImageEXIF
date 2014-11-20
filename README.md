@@ -41,6 +41,14 @@ _Example for which EXIF data get's added:_
 "whiteBalance":"Daylight",
 "whiteBalanceUnformatted":1
 }
-
-
 ```
+
+_How to use (example):_
+
+```php
+<?php
+$image = $page->images->first();
+echo 'ISO: '.$image->EXIF->iso; // $image->exif->iso would work, too
+?>
+```
+
