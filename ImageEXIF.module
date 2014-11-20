@@ -1,0 +1,211 @@
+<?php
+
+class ImageEXIF extends WireData implements Module
+{
+    public static function getModuleInfo()
+    {
+        return array(
+            'title' => __('EXIF Data'),
+            'summary' => __('Expends the image object with EXIF data.'),
+            'version' => '040',
+            'author' => 'Nico Knoll',
+            'autoload' => true
+        );
+    }
+
+    public function init() {
+        $this->addHookProperty('Pageimage::EXIF', $this, 'hookGetEXIF');
+        $this->addHookProperty('Pageimage::exif', $this, 'hookGetEXIF');
+    }
+
+    public function hookGetEXIF(HookEvent $event) {
+        $image = $event->object;
+        $event->return = $this->getExifDataFromImage($image);
+    }
+    
+    private function getExifDataFromImage($image) {
+        $imageFile = $image->filename;
+        
+        $exif = exif_read_data($imageFile, 0 , true);
+        
+        // aperture
+        list($num, $den) = explode("/",$exif["EXIF"]["FNumber"]);
+        $aperture  = ($num/$den);
+        
+        // exposure
+        list($num, $den) = explode("/", $exif["EXIF"]["ExposureTime"]);
+        if ($num > $den) {
+            $exposure = "{$num}";
+        } else {
+            $den = round($den/$num);
+            $exposure = "1/{$den}";
+        }
+        
+        // focal length
+        list($num, $den) = explode("/", $exif["EXIF"]["FocalLength"]);
+        $focallength  = ($num/$den);
+        
+        
+        // date & time
+        $timestamp = strtotime($exif["EXIF"]["DateTimeOriginal"]);
+        $dateoriginal = str_replace(":","-",substr($exif["EXIF"]["DateTimeOriginal"], 0, 10));
+        $timeoriginal = substr($exif["EXIF"]["DateTimeOriginal"], 10);
+        
+        // size & pathinfo
+        list($width, $height, $type, $attr) = getimagesize($imageFile);
+        $ext = pathinfo($imageFile, PATHINFO_EXTENSION);
+        
+        $data = array(
+            'aperture' => $aperture,                        // Blendenöffnung
+            'apertureUnformatted' => $exif["EXIF"]['FNumber'],
+            'av' => $aperture,                              // ALIAS: aperture
+            
+            'exposure' => $exposure,                                     // ALIAS: exposureTime
+            'exposureTime' => $exposure,                                 // Belichtung 
+            'tv' => $exposure,                                     // ALIAS: exposureTime
+            'shutterTime' => $exposure,                 // ALIAS: exposureTime
+            
+            'cameraMake' => $exif["IFD0"]["Make"],
+            'cameraModel' => $exif["IFD0"]["Model"],
+
+            'name' => basename($imageFile, ".".$ext),
+            'filename' => basename($imageFile),
+            'filesize' => filesize($imageFile),
+            'mimeType' => $exif["FILE"]['MimeType'],
+            'height' => $height,
+            'width' => $width,      
+            'artist' => $exif["IFD0"]["Artist"],
+            'photographer' => $exif["IFD0"]["Artist"], // ALIAS: artist        
+            'comment' => $exif['EXIF']['UserComment'],
+            'copyright' => $exif['IFD0']['Copyright'],
+            'flash' => $this->helperFlash($exif["EXIF"]["Flash"]),
+            'flashUnformatted' => $exif["EXIF"]["Flash"],
+            
+            'focalLength' => $focallength.'mm',
+            'focalLengthUnformatted' => $focallength,
+            'iso' => $exif["EXIF"]["ISOSpeedRatings"],
+            'ISO' => $exif["EXIF"]["ISOSpeedRatings"],                                    // Alias: iso
+            'orientation' => $exif["IFD0"]["Orientation"],  // TODO: What is this?
+            'orientationUnformatted' => $exif["IFD0"]["Orientation"],
+            
+            'date' => $dateoriginal,
+            'time' => $timeoriginal,
+            'timestamp' => $timestamp,
+            
+            'whiteBalance' => $this->helperWhitebalance($exif["EXIF"]["WhiteBalance"]),
+            'whiteBalanceUnformatted' => $exif["EXIF"]["WhiteBalance"]
+        );        
+        
+        return (object)$data;
+    }
+    
+    private function helperFlash($flashCode) {
+        switch($flashCode) {
+        case 0:
+            $exif_flash = 'Flash did not fire';
+            break;
+        case 1:
+            $exif_flash = 'Flash fired';
+            break;
+        case 5:
+            $exif_flash = 'Strobe return light not detected';
+            break;
+        case 7:
+            $exif_flash = 'Strobe return light detected';
+            break;
+        case 9:
+            $exif_flash = 'Flash fired, compulsory flash mode';
+            break;
+        case 13:
+            $exif_flash = 'Flash fired, compulsory flash mode, return light not detected';
+            break;
+        case 15:
+            $exif_flash = 'Flash fired, compulsory flash mode, return light detected';
+            break;
+        case 16:
+            $exif_flash = 'Flash did not fire, compulsory flash mode';
+            break;
+        case 24:
+            $exif_flash = 'Flash did not fire, auto mode';
+            break;
+        case 25:
+            $exif_flash = 'Flash fired, auto mode';
+            break;
+        case 29:
+            $exif_flash = 'Flash fired, auto mode, return light not detected';
+            break;
+        case 31:
+            $exif_flash = 'Flash fired, auto mode, return light detected';
+            break;
+        case 32:
+            $exif_flash = 'No flash function';
+            break;
+        case 65:
+            $exif_flash = 'Flash fired, red-eye reduction mode';
+            break;
+        case 69:
+            $exif_flash = 'Flash fired, red-eye reduction mode, return light not detected';
+            break;
+        case 71:
+            $exif_flash = 'Flash fired, red-eye reduction mode, return light detected';
+            break;
+        case 73:
+            $exif_flash = 'Flash fired, compulsory flash mode, red-eye reduction mode';
+            break;
+        case 77:
+            $exif_flash = 'Flash fired, compulsory flash mode, red-eye reduction mode, return light not detected';
+            break;
+        case 79:
+            $exif_flash = 'Flash fired, compulsory flash mode, red-eye reduction mode, return light detected';
+            break;
+        case 89:
+            $exif_flash = 'Flash fired, auto mode, red-eye reduction mode';
+            break;
+        case 93:
+            $exif_flash = 'Flash fired, auto mode, return light not detected, red-eye reduction mode';
+            break;
+        case 95:
+            $exif_flash = 'Flash fired, auto mode, return light detected, red-eye reduction mode';
+            break;
+        default:
+            $exif_flash = '';
+            break;
+        }
+        return $exif_flash;
+    }
+    
+    
+    private function helperWhitebalance($whiteBalanceCode) {
+        switch($whiteBalanceCode) {
+            case 0:
+                $whitebalance = "Auto";
+                break;
+            case 1:
+                $whitebalance = "Daylight";
+                break;
+            case 2:
+                $whitebalance = "Fluorescent";
+                break;
+            case 3:
+                $whitebalance = "Incandescent";
+                break;
+            case 4:
+                $whitebalance = "Flash";
+                break;
+            case 9:
+                $whitebalance = "Fine Weather";
+                break;
+            case 10:
+                $whitebalance = "Cloudy";
+                break;
+            case 11:
+                $whitebalance = "Shade";
+                break;
+            default:
+                $whitebalance = '';
+                break;
+        }
+        return $whitebalance;
+    }
+
+}
