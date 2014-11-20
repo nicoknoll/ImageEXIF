@@ -2,31 +2,52 @@
 
 class ImageEXIF extends WireData implements Module
 {
-    public static function getModuleInfo()
-    {
+    public static function getModuleInfo() {
         return array(
             'title' => __('EXIF Data'),
             'summary' => __('Expends the image object with EXIF data.'),
-            'version' => '040',
+            'version' => '060',
             'author' => 'Nico Knoll',
             'autoload' => true
         );
     }
 
     public function init() {
-        $this->addHookProperty('Pageimage::EXIF', $this, 'hookGetEXIF');
-        $this->addHookProperty('Pageimage::exif', $this, 'hookGetEXIF');
+        if(function_exists("exif_read_data")) {
+            $this->addHookProperty('Pageimage::EXIF', $this, 'hookGetEXIF');
+            $this->addHookProperty('Pageimage::exif', $this, 'hookGetEXIF');
+        }
     }
 
     public function hookGetEXIF(HookEvent $event) {
         $image = $event->object;
-        $event->return = $this->getExifDataFromImage($image);
+        $event->return = new ImageEXIFAccessor($image);
+    }
+}
+    
+class ImageEXIFAccessor {
+    var $image, $data, $exif;
+    
+    public function __construct($image) {
+        $this->image = $image;
+        $this->data = $this->getExifDataFromImage($image);
     }
     
+    
+    public function __get($string) {
+        if(in_array($string, array_keys($this->data))) return $this->data[$string];
+        
+        if(in_array($string, array_keys($this->exif['EXIF']))) return $this->exif['EXIF'][$string];
+        if(in_array($string, array_keys($this->exif['IFD0']))) return $this->exif['IFD0'][$string];
+        if(in_array($string, array_keys($this->exif['FILE']))) return $this->exif['FILE'][$string];
+    }
+    
+
     private function getExifDataFromImage($image) {
         $imageFile = $image->filename;
         
         $exif = exif_read_data($imageFile, 0 , true);
+        $this->exif = $exif;
         
         // aperture
         list($num, $den) = explode("/",$exif["EXIF"]["FNumber"]);
@@ -93,11 +114,19 @@ class ImageEXIF extends WireData implements Module
             'timestamp' => $timestamp,
             
             'whiteBalance' => $this->helperWhitebalance($exif["EXIF"]["WhiteBalance"]),
-            'whiteBalanceUnformatted' => $exif["EXIF"]["WhiteBalance"]
+            'whiteBalanceUnformatted' => $exif["EXIF"]["WhiteBalance"],
+            
+            'raw' => $exif,
+            'all' => $exif,
+            'full' => $exif
         );        
         
-        return (object)$data;
+        return $data;
     }
+    
+
+    
+    
     
     private function helperFlash($flashCode) {
         switch($flashCode) {
