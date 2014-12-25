@@ -21,20 +21,28 @@ class ImageEXIF extends WireData implements Module
 
     public function hookGetEXIF(HookEvent $event) {
         $image = $event->object;
-        $event->return = new ImageEXIFAccessor($image);
+        $event->return = new ImageEXIFAccessor($image->filename);
+    }
+    
+    public function getEXIF($imagefile) {
+        // so you don't have to use image objects. I think you have to use the full image path
+        return new ImageEXIFAccessor($imagefile);
     }
 }
+
     
 class ImageEXIFAccessor {
-    private $image, $data, $exif;
+    private $imagefile, $data, $exif;
     
-    public function __construct($image) {
-        $this->image = $image;
-        $this->data = $this->getExifDataFromImagefile($image);
+    public function __construct($imagefile) {
+        $this->imagefile = $imagefile;
+        $this->data = $this->getExifDataFromImagefile($imagefile);
     }
     
     
     public function __get($string) {
+        if(!$this->data) return '';
+        
         if(in_array($string, array_keys($this->data))) return $this->data[$string];
         
         if(in_array($string, array_keys($this->exif['EXIF']))) return $this->exif['EXIF'][$string];
@@ -43,27 +51,24 @@ class ImageEXIFAccessor {
         
         return '';
     }
-    
 
 
-    private function getExifDataFromImagefile($image) {
-        $imageFilename = $image->filename;
-        
+    private function getExifDataFromImagefile($imagefile) {
         // read exif data
-        $exif = @exif_read_data($imageFilename, NULL, true);  
-        if (false === $exif) return false; 
+        $exif = @exif_read_data($imagefile, NULL, true); 
+        if($exif === false) return false; 
         
         $this->exif = $exif;
         
         // size & pathinfo
-        list($width, $height, $type, $attr) = getimagesize($imageFilename);
-        $ext = pathinfo($imageFilename, PATHINFO_EXTENSION);
+        list($width, $height, $type, $attr) = getimagesize($imagefile);
+        $ext = pathinfo($imagefile, PATHINFO_EXTENSION);
         
         // default image attributes
         $data = array(
-            'name'                        => basename($imageFilename, ".".$ext),
-            'filename'                    => basename($imageFilename),
-            'filesize'                    => filesize($imageFilename),
+            'name'                        => basename($imagefile, ".".$ext),
+            'filename'                    => basename($imagefile),
+            'filesize'                    => filesize($imagefile),
             'height'                      => $height,
             'width'                       => $width
         );    
@@ -176,9 +181,6 @@ class ImageEXIFAccessor {
                     case 'IsColor':
                         $data['color']                  = (((int)$exif["COMPUTED"]["IsColor"]) ? true : false);
                         break;
-                    
-                    
-                    
                 }
             }
         } 
@@ -192,6 +194,7 @@ class ImageEXIFAccessor {
         // so we can use it as array
         $data['data'] = $data;
         
+        // add raw data
         $data['raw'] = $data['exif'] = $exif;
         
         return $data;
@@ -202,8 +205,6 @@ class ImageEXIFAccessor {
         return $this->data['data'];
     }
 
-
-    
     
     private function helperFlash($flashCode) {
         $exifFlashCodes = array(
