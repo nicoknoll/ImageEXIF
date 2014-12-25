@@ -7,7 +7,7 @@ class ImageEXIF extends WireData implements Module
             'title' => __('EXIF Data'),
             'summary' => __('Expends the image object with EXIF data.'),
             'version' => '070',
-            'author' => 'Nico Knoll',
+            'author' => 'Nico Knoll, Horst',
             'autoload' => true
         );
     }
@@ -30,7 +30,7 @@ class ImageEXIFAccessor {
     
     public function __construct($image) {
         $this->image = $image;
-        $this->data = $this->getExifDataFromImage($image);
+        $this->data = $this->getExifDataFromImagefile($image);
     }
     
     
@@ -46,22 +46,24 @@ class ImageEXIFAccessor {
     
 
 
-    private function getExifDataFromImage($image) {
-        $imageFile = $image->filename;
+    private function getExifDataFromImagefile($image) {
+        $imageFilename = $image->filename;
         
         // read exif data
-        $exif = exif_read_data($imageFile, 0 , true);
+        $exif = @exif_read_data($imageFilename, NULL, true);  
+        if (false === $exif) return false; 
+        
         $this->exif = $exif;
         
         // size & pathinfo
-        list($width, $height, $type, $attr) = getimagesize($imageFile);
-        $ext = pathinfo($imageFile, PATHINFO_EXTENSION);
+        list($width, $height, $type, $attr) = getimagesize($imageFilename);
+        $ext = pathinfo($imageFilename, PATHINFO_EXTENSION);
         
         // default image attributes
         $data = array(
-            'name'                        => basename($imageFile, ".".$ext),
-            'filename'                    => basename($imageFile),
-            'filesize'                    => filesize($imageFile),
+            'name'                        => basename($imageFilename, ".".$ext),
+            'filename'                    => basename($imageFilename),
+            'filesize'                    => filesize($imageFilename),
             'height'                      => $height,
             'width'                       => $width
         );    
