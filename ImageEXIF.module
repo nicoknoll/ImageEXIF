@@ -43,6 +43,10 @@ class ImageEXIFAccessor {
     public function __get($string) {
         if(!$this->data) return '';
         
+        // FIX by douglas81 (https://processwire.com/talk/topic/8348-imageexif/#entry108723)
+        // make sure that what we're searching for is actually set, otherwise we get an error notice
+	    if(!isset($this->data[$string]) && !isset($this->exif['EXIF'][$string]) &&  !isset($this->exif['IFD0'][$string])  && !isset($this->exif['FILE'][$string])) return '';
+        
         if(in_array($string, array_keys($this->data))) return $this->data[$string];
         
         if(in_array($string, array_keys($this->exif['EXIF']))) return $this->exif['EXIF'][$string];
